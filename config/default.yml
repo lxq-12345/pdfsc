@@ -1,0 +1,73 @@
+# PDF Smart Converter - Default Configuration
+#
+# 这是内置的默认配置，所有字段都有默认值
+# 用户配置会覆盖这里的设置
+# 命令行参数会覆盖用户配置
+
+# ─────────────────────────────────────
+# 1. 路径配置
+# ─────────────────────────────────────
+paths:
+  project_root: ./
+  input_pdf: ./pdfs/
+  output_md: ./output/
+  log_file: ./logs/pdfsc.log
+
+# ─────────────────────────────────────
+# 2. 日志配置
+# ─────────────────────────────────────
+logging:
+  enabled: true
+  level: INFO                         # DEBUG / INFO / WARNING / ERROR
+  console_output: true
+
+# ─────────────────────────────────────
+# 3. 图片处理配置
+# ─────────────────────────────────────
+images:
+  mode: disabled                      # disabled / description-only / extract
+  min_width: 100                      # extract模式：忽略宽度低于此值的小图（px）
+  formats: [png, jpg]                 # 支持的图片格式
+
+# ─────────────────────────────────────
+# 4. 转换配置
+# ─────────────────────────────────────
+conversion:
+  mode: full                          # full / restore-only / enhance-only
+  save_intermediate: true             # 是否保留忠实还原版中间产物
+  language: auto                      # auto / zh / en
+
+# ─────────────────────────────────────
+# 5. AI模型配置
+# ─────────────────────────────────────
+api:
+  provider: anthropic                 # anthropic / openai / qwen / ollama
+  model: claude-sonnet-4-5            # 模型名称
+  key_env: ANTHROPIC_API_KEY          # API Key环境变量名
+  base_url:                           # 留空使用默认；Ollama填 http://localhost:11434/v1
+  max_retries: 3
+  timeout: 120                        # 超时时间（秒）
+  unknown_model_vision: false         # 未知模型是否假设支持视觉（保守降级）
+
+# ─────────────────────────────────────
+# 6. 批量处理配置
+# ─────────────────────────────────────
+batch:
+  recursive: false                    # 是否递归处理子目录
+  file_pattern: "*.pdf"              # 文件名过滤规则
+  overwrite_existing: false           # 是否覆盖已存在的输出文件
+
+# ─────────────────────────────────────
+# 7. 输出命名配置
+# ─────────────────────────────────────
+naming:
+  template: "{index}_{title}.md"     # 命名模板
+  index_start: 1                     # 序号起始值
+  index_digits: 2                    # 序号位数
+
+# ─────────────────────────────────────
+# 8. 质量控制配置
+# ─────────────────────────────────────
+quality:
+  auto_validate: true                 # 是否自动运行格式验证
+  on_failure: warn                    # warn / stop

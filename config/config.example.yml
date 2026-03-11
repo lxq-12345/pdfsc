@@ -1,0 +1,132 @@
+# PDF Smart Converter - Configuration Example
+#
+# 📋 使用说明：
+# 1. 复制此文件为 config.yml
+# 2. 填入你的 API Key
+# 3. 根据需要调整其他配置
+# 4. 运行: pdfsc convert input.pdf --config ./config/config.yml
+
+# ─────────────────────────────────────
+# 1. 路径配置
+# ─────────────────────────────────────
+paths:
+  project_root: ./                    # 项目根路径
+  input_pdf: ./pdfs/                  # 原始PDF文件路径
+  output_md: ./output/                # 生成MD文档路径
+  log_file: ./logs/pdfsc.log          # 日志文件路径
+
+# ─────────────────────────────────────
+# 2. 日志配置
+# ─────────────────────────────────────
+logging:
+  enabled: true                       # 日志开关
+  level: INFO                         # DEBUG / INFO / WARNING / ERROR
+  console_output: true                # 同时输出到控制台
+
+# ─────────────────────────────────────
+# 3. 图片处理配置
+# ─────────────────────────────────────
+images:
+  mode: disabled                      # 三种模式：
+                                      #  disabled（默认）- 忽略图片
+                                      #  description-only - 提取图片描述文字
+                                      #  extract - 提取图片文件
+  min_width: 100                      # extract模式：忽略宽度<此值的装饰图
+  formats: [png, jpg]                 # 支持的图片格式
+
+# ─────────────────────────────────────
+# 4. 转换配置
+# ─────────────────────────────────────
+conversion:
+  mode: full                          # 转换模式：
+                                      #  full - 完整（还原+增强）
+                                      #  restore-only - 仅还原
+                                      #  enhance-only - 仅增强
+  save_intermediate: true             # 保留忠实还原版（强烈推荐true）
+  language: auto                      # 检测语言：auto / zh / en
+
+# ─────────────────────────────────────
+# 5. AI模型配置 ⭐ 必须配置
+# ─────────────────────────────────────
+api:
+  # 选择提供商
+  provider: anthropic                 # anthropic / openai / qwen / ollama
+
+  # Claude 配置示例：
+  model: claude-sonnet-4-5            # 推荐：claude-sonnet-4-5 或 claude-opus-4-6
+  key_env: ANTHROPIC_API_KEY          # 环境变量名（设置在 .env 或 shell）
+  base_url:                           # 不填（使用官方地址）
+
+  # OpenAI 配置示例（注释掉别的provider时使用）：
+  # provider: openai
+  # model: gpt-4o
+  # key_env: OPENAI_API_KEY
+  # base_url:
+
+  # Ollama 本地配置示例（需要 docker-compose up）：
+  # provider: ollama
+  # model: qwen2.5-vl
+  # key_env:                           # Ollama无需API Key，留空
+  # base_url: http://localhost:11434/v1
+
+  # 重试和超时
+  max_retries: 3                      # 最大重试次数
+  timeout: 120                        # 超时（秒）
+  unknown_model_vision: false         # 未知模型是否支持视觉（保守默认false）
+
+# ─────────────────────────────────────
+# 6. 按PDF类型指定不同模型（可选）
+# ─────────────────────────────────────
+  type_overrides:
+    text_only:                        # 纯文字型PDF - 可用轻量模型
+      provider: ollama
+      model: qwen2.5
+      base_url: http://localhost:11434/v1
+
+    mixed:                            # 图文混合型PDF - 用视觉模型
+      provider: anthropic
+      model: claude-sonnet-4-5
+      key_env: ANTHROPIC_API_KEY
+
+    scanned:                          # 扫描型PDF - 用最强视觉模型
+      provider: anthropic
+      model: claude-sonnet-4-5
+      key_env: ANTHROPIC_API_KEY
+
+# ─────────────────────────────────────
+# 7. 批量处理配置
+# ─────────────────────────────────────
+batch:
+  recursive: false                    # 是否递归处理子目录
+  file_pattern: "*.pdf"              # 文件名过滤规则
+  overwrite_existing: false           # 是否覆盖已存在的输出
+
+# ─────────────────────────────────────
+# 8. 输出命名配置
+# ─────────────────────────────────────
+naming:
+  template: "{index}_{title}.md"     # 命名模板
+  index_start: 1                     # 序号起始值
+  index_digits: 2                    # 序号位数（01, 02, ...）
+
+# ─────────────────────────────────────
+# 9. 质量控制配置
+# ─────────────────────────────────────
+quality:
+  auto_validate: true                 # 自动验证输出格式
+  on_failure: warn                    # warn（警告继续）/ stop（报错停止）
+
+
+# ═══════════════════════════════════
+# 📝 环境变量配置
+# ═══════════════════════════════════
+#
+# 在项目根目录创建 .env 文件：
+#
+# ANTHROPIC_API_KEY=sk-ant-...
+# OPENAI_API_KEY=sk-...
+#
+# 或在shell中设置：
+#
+# export ANTHROPIC_API_KEY=sk-ant-...
+# pdfsc convert input.pdf

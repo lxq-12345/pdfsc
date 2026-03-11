@@ -1,0 +1,23 @@
+# PDF Smart Converter - Python Dependencies
+#
+# Core dependencies for PDF processing and AI integration
+
+# PDF处理
+pdfplumber>=0.9.0          # 结构化PDF文字和表格提取
+pdf2image>=1.16.0          # PDF转图片
+PyMuPDF>=1.23.0            # 高效的PDF图片提取
+
+# AI模型集成
+anthropic>=0.7.0           # Anthropic Claude API
+openai>=1.0.0              # OpenAI GPT API
+qwen-vl-python>=0.2.0      # 阿里Qwen API（可选）
+
+# 配置管理
+PyYAML>=6.0                # YAML配置文件解析
+
+# 工具库
+python-dotenv>=1.0.0       # 环境变量管理
+Pillow>=9.0.0              # 图片处理
+
+# 开发和测试
+pytest>=7.0.0              # 单元测试框架（可选）

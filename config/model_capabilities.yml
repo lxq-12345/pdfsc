@@ -1,0 +1,84 @@
+# Model Capabilities Registry
+#
+# 记录已知模型的能力信息
+# 遇到注册表中没有的模型，默认假设不支持视觉（保守降级）
+
+anthropic:
+  claude-opus-4-6:
+    vision: true
+    chinese: true
+  claude-sonnet-4-6:
+    vision: true
+    chinese: true
+  claude-opus-4-5:
+    vision: true
+    chinese: true
+  claude-sonnet-4-5:
+    vision: true
+    chinese: true
+  claude-3-opus:
+    vision: true
+    chinese: true
+  claude-3-sonnet:
+    vision: true
+    chinese: true
+  claude-3-haiku:
+    vision: true
+    chinese: true
+
+openai:
+  gpt-4o:
+    vision: true
+    chinese: true
+  gpt-4o-mini:
+    vision: true
+    chinese: true
+  gpt-4-turbo:
+    vision: true
+    chinese: false
+  gpt-4-vision:
+    vision: true
+    chinese: false
+  gpt-4:
+    vision: false
+    chinese: false
+
+qwen:
+  qwen-vl-max:
+    vision: true
+    chinese: true
+  qwen-vl-plus:
+    vision: true
+    chinese: true
+  qwen-max:
+    vision: false
+    chinese: true
+  qwen-plus:
+    vision: false
+    chinese: true
+
+ollama:
+  qwen2.5-vl:
+    vision: true
+    chinese: true
+  qwen2.5:
+    vision: false
+    chinese: true
+  qwen2-vl:
+    vision: true
+    chinese: true
+  qwen2:
+    vision: false
+    chinese: true
+  llama3.2-vision:
+    vision: true
+    chinese: false
+  llama3.2:
+    vision: false
+    chinese: false
+  llama3.1:
+    vision: false
+    chinese: false
+  mistral:
+    vision: false
+    chinese: false

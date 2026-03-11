@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pdfsc-ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # 使用方式：
+    # 1. 启动容器：docker-compose up -d
+    # 2. 拉取模型：docker exec pdfsc-ollama ollama pull qwen2.5-vl
+    # 3. 验证：curl http://localhost:11434/api/tags
+    # 4. Python调用：base_url="http://localhost:11434/v1"
+
+volumes:
+  ollama_data:
+    driver: local
