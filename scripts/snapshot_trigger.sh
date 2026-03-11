@@ -1,12 +1,19 @@
 #!/bin/bash
-# 配置驱动的快照处理器
+# 配置驱动的快照处理器 - 支持会话隔离
 # 从会话管理协议.md读取规则，自动识别快照触发
+# 每个会话有唯一的SESSION_ID，缓冲和快照文件完全隔离
 
 PROTOCOL_FILE="会话管理协议.md"
 SNAPSHOT_DIR="mem/snapshot"
-BUFFER_FILE="mem/.snapshot_buffer.md"
+BUFFER_DIR="mem"
 
-echo "=== 快照配置驱动处理器 ==="
+# 生成唯一的会话ID
+# 格式：YYYYMMDD_HHMM_XXXX（日期_时间_随机4位）
+SESSION_ID=$(date +%Y%m%d_%H%M)_$(openssl rand -hex 2)
+BUFFER_FILE="$BUFFER_DIR/.snapshot_buffer_$SESSION_ID.md"
+
+echo "=== 快照配置驱动处理器（会话隔离） ==="
+echo "📍 SESSION_ID: $SESSION_ID"
 echo ""
 
 # 从协议文件读取关键词
@@ -14,7 +21,6 @@ echo "【1】从协议读取关键词配置"
 
 # 提取快照触发关键词（使用sed）
 # 格式: 快照触发：    "快照" / "保存快照"
-# 提取第一个引号内的内容和第二个引号内的内容
 SNAPSHOT_KEYWORDS=$(grep "快照触发：" "$PROTOCOL_FILE" | sed -n 's/.*"\([^"]*\)".*/\1/;p' | tr '\n' '|' | sed 's/|$//')
 
 # 提取结束归档关键词
@@ -23,6 +29,7 @@ ARCHIVE_KEYWORDS=$(grep "结束归档：" "$PROTOCOL_FILE" | sed -n 's/.*"\([^"]
 echo "✅ 已加载规则:"
 echo "   快照触发: $SNAPSHOT_KEYWORDS"
 echo "   结束归档: $ARCHIVE_KEYWORDS"
+echo "   缓冲文件: $BUFFER_FILE (隔离)"
 echo ""
 
 # 测试关键词识别
@@ -50,7 +57,7 @@ test_trigger() {
 generate_snapshot() {
     CONVERSATION="$1"
     TIMESTAMP=$(date +%Y-%m-%d-%H%M)
-    SNAPSHOT_FILE="$SNAPSHOT_DIR/快照-$TIMESTAMP.md"
+    SNAPSHOT_FILE="$SNAPSHOT_DIR/快照-$TIMESTAMP-$SESSION_ID.md"
 
     echo "   生成快照文件: $SNAPSHOT_FILE"
     echo "$CONVERSATION" > "$SNAPSHOT_FILE"
@@ -76,3 +83,4 @@ fi
 
 echo ""
 echo "✅ 配置驱动快照处理验证完毕"
+echo "📍 会话隔离就绪，SESSION_ID: $SESSION_ID"
