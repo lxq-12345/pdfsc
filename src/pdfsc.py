@@ -22,7 +22,7 @@ from extractor import TextExtractor
 from image_handler import ImageProcessor
 from logger import create_logger
 from metadata import FrontmatterGenerator
-from validator import MarkdownValidator
+from validator import HallucinationDetector, MarkdownValidator
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -182,6 +182,14 @@ def run_convert_batch(args, config, logger):
 
     logger.info(f"批量转换完成：成功 {success_count}/{len(pdf_files)}")
 
+    # 批量汇总报告
+    if results:
+        reports_dir = output_root / 'reports'
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        summary_path = reports_dir / f"batch_summary_{_today()}.md"
+        _write_batch_summary(summary_path, results, success_count, len(pdf_files))
+        logger.info(f"批量报告已生成: {summary_path}")
+
 
 def run_verify(args, logger):
     """执行格式验证"""
@@ -327,12 +335,76 @@ def convert_single_pdf(pdf_path, output_root, config, logger, index):
         final_path = final_dir / f"{base_name}.md"
         final_path.write_text(final_markdown, encoding='utf-8')
 
+    # 质量检测报告
+    reports_dir = output_root / 'reports'
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = None
+
+    if restore_markdown and final_markdown:
+        report_lines = [
+            f"# 转换质量报告 - {pdf_path.name}",
+            f"\n**转换日期**：{_today()}\n",
+        ]
+
+        # 格式验证
+        validator = MarkdownValidator()
+        val_result = validator.validate(final_markdown)
+        report_lines.append(validator.generate_report(val_result))
+
+        # 数字幻觉检测
+        detector = HallucinationDetector()
+        hal_result = detector.detect(restore_markdown, final_markdown)
+        report_lines.append(detector.generate_report(hal_result, pdf_name=pdf_path.name))
+
+        report_content = '\n'.join(report_lines)
+        report_path = reports_dir / f"{base_name}_quality_report.md"
+        report_path.write_text(report_content, encoding='utf-8')
+
+        risk = hal_result['risk_level']
+        logger.info(
+            f"质量报告已生成: {report_path.name} "
+            f"（格式验证={val_result['score']}/10，幻觉风险={risk}）"
+        )
+
     return {
         'pdf': str(pdf_path),
         'type': pdf_type,
         'raw_path': str(raw_path) if raw_path else None,
         'final_path': str(final_path) if final_path else None,
+        'report_path': str(report_path) if report_path else None,
+        'validation_score': val_result['score'] if restore_markdown and final_markdown else None,
+        'hallucination_risk': hal_result['risk_level'] if restore_markdown and final_markdown else None,
     }
+
+
+def _today():
+    """返回今日日期字符串 YYYY-MM-DD。"""
+    from datetime import date
+    return date.today().isoformat()
+
+
+def _write_batch_summary(summary_path, results, success_count, total_count):
+    """写入批量转换汇总报告。"""
+    lines = [
+        '# 批量转换汇总报告',
+        '',
+        f"**日期**：{_today()}",
+        f"**总计**：{success_count}/{total_count} 成功",
+        '',
+        '## 各文件结果',
+        '',
+        '| 文件 | 类型 | 格式评分 | 幻觉风险 | 报告 |',
+        '|------|------|---------|---------|------|',
+    ]
+    for r in results:
+        pdf_name = Path(r['pdf']).name
+        pdf_type = r.get('type', '-')
+        score = f"{r['validation_score']}/10" if r.get('validation_score') is not None else '-'
+        risk = r.get('hallucination_risk', '-') or '-'
+        report = Path(r['report_path']).name if r.get('report_path') else '-'
+        lines.append(f"| {pdf_name} | {pdf_type} | {score} | {risk} | {report} |")
+
+    summary_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
 def collect_pdf_files(input_dir, recursive=False, pattern='*.pdf'):

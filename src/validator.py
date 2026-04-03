@@ -185,3 +185,86 @@ def validate_markdown_file(markdown_file, spec_file=None):
     validator = MarkdownValidator(spec_file=spec_file)
     result = validator.validate(content)
     return result, validator.generate_report(result)
+
+
+class HallucinationDetector:
+    """
+    数字幻觉自动检测器
+
+    通过对比 raw（忠实还原）和 final（智能增强）两个版本的数字，
+    检测 final 中出现但 raw 中没有的数字（潜在幻觉）。
+    """
+
+    # 匹配整数和小数（不用 \b 避免中文字边界失效）
+    NUMBER_PATTERN = re.compile(r'\d+(?:\.\d+)?')
+
+    def extract_numbers(self, text):
+        """从文本中提取所有数字字符串，返回集合。"""
+        # 排除纯标题序号（如 ## 2. 步骤）
+        clean = re.sub(r'^#+\s+\d+[\.、]\s*', '', text, flags=re.MULTILINE)
+        return set(self.NUMBER_PATTERN.findall(clean))
+
+    def detect(self, raw_content, final_content):
+        """
+        对比 raw 和 final，返回检测结果。
+
+        Returns:
+            dict:
+                - new_in_final: final有但raw没有的数字（潜在幻觉）
+                - lost_in_final: raw有但final没有的数字（潜在遗漏）
+                - hallucination_count: 潜在幻觉数量
+                - risk_level: 'high' / 'medium' / 'low'
+        """
+        raw_nums = self.extract_numbers(raw_content)
+        final_nums = self.extract_numbers(final_content)
+
+        new_in_final = final_nums - raw_nums
+        lost_in_final = raw_nums - final_nums
+
+        # 过滤掉常见无意义数字（1、2、3等序号）
+        noise = {str(i) for i in range(1, 20)}
+        new_in_final -= noise
+        lost_in_final -= noise
+
+        count = len(new_in_final)
+        if count >= 5:
+            risk = 'high'
+        elif count >= 2:
+            risk = 'medium'
+        else:
+            risk = 'low'
+
+        return {
+            'new_in_final': sorted(new_in_final),
+            'lost_in_final': sorted(lost_in_final),
+            'hallucination_count': count,
+            'risk_level': risk,
+        }
+
+    def generate_report(self, detection_result, pdf_name=''):
+        """生成数字幻觉检测报告文本。"""
+        r = detection_result
+        risk_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
+        lines = [
+            '## 数字幻觉检测',
+            '',
+            f"- 文件：{pdf_name}" if pdf_name else '',
+            f"- 风险等级：{risk_emoji.get(r['risk_level'], '')} {r['risk_level'].upper()}",
+            f"- 潜在幻觉数字数量：{r['hallucination_count']}",
+            '',
+            '### final中新增（raw中没有）',
+        ]
+        lines = [l for l in lines if l != '']  # 去空行占位
+
+        if r['new_in_final']:
+            lines.extend([f"  - `{n}`" for n in r['new_in_final']])
+        else:
+            lines.append('  - 无')
+
+        lines.extend(['', '### raw中有但final丢失'])
+        if r['lost_in_final']:
+            lines.extend([f"  - `{n}`" for n in r['lost_in_final']])
+        else:
+            lines.append('  - 无')
+
+        return '\n'.join(lines) + '\n'
