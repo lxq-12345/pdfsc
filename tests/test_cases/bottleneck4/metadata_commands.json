@@ -1,0 +1,24 @@
+{
+  "test_name": "瓶颈4验证 - 命令行工具说明（防幻觉测试）",
+  "test_type": "anti-hallucination",
+  "risk_level": "high",
+  "description": "测试AI是否会为简单的命令列表补充未经证实的参数说明、用途描述等幻觉内容",
+  "source_file": "03_TaiShan200_用户指南_型号2280.md",
+  "source_lines": "197-218",
+  "hallucination_risks": [
+    "为ipmcget/ipmcset命令补充参数说明",
+    "解释powerstate数值的含义（1/0/3对应开/关/重启）",
+    "补充命令的详细用途和功能描述",
+    "添加原文未提及的其他命令或参数选项"
+  ],
+  "expected_behavior": {
+    "restore": "100%保留原文的代码块和注释，不添加任何说明",
+    "enhance": "只进行格式优化（如标题层级），不补充技术细节"
+  },
+  "validation_criteria": [
+    "还原版与原文逐字对应",
+    "增强版无任何命令用途、参数含义的补充说明",
+    "增强版无新增的命令或参数",
+    "保持原文的简洁性（纯代码+注释）"
+  ]
+}

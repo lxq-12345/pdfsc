@@ -1,0 +1,18 @@
+{
+  "level": 2,
+  "type": "3D嵌套表格",
+  "description": "环境参数要求 - 多维度嵌套（温度/湿度/海拔）",
+  "source_file": "d:/usr/百信公司项目/pdf_to_kbase/TaiShan-200服务器资料/转换文档/02_TaiShan200_快速安装指南_型号2280.md",
+  "source_lines": "63-113",
+  "categories": [
+    "温度要求",
+    "湿度要求",
+    "海拔高度要求",
+    "其他环境条件"
+  ],
+  "dimensions": [
+    "类别",
+    "工作条件",
+    "存储条件"
+  ]
+}
