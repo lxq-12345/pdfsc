@@ -41,10 +41,10 @@ conversion:
 # 5. AI模型配置
 # ─────────────────────────────────────
 api:
-  provider: anthropic                 # anthropic / openai / qwen / ollama
-  model: claude-sonnet-4-5            # 模型名称
+  provider: ollama                    # anthropic / openai / qwen / ollama
+  model: qwen2.5:1.5b                 # 模型名称
   key_env: ANTHROPIC_API_KEY          # API Key环境变量名
-  base_url:                           # 留空使用默认；Ollama填 http://localhost:11434/v1
+  base_url: http://localhost:11434/v1  # 留空使用默认；Ollama填 http://localhost:11434/v1
   offline_mode: false                 # true时强制离线，不触发任何外部模型调用
   max_retries: 3
   timeout: 120                        # 超时时间（秒）

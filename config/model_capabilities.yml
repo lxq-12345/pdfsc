@@ -58,10 +58,16 @@ qwen:
     chinese: true
 
 ollama:
+  qwen2.5vl:
+    vision: true
+    chinese: true
   qwen2.5-vl:
     vision: true
     chinese: true
   qwen2.5:
+    vision: false
+    chinese: true
+  qwen2.5:1.5b:
     vision: false
     chinese: true
   qwen2-vl:

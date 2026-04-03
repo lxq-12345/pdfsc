@@ -53,8 +53,9 @@ class ConfigManager:
             if hasattr(cli_args, cli_key):
                 cli_value = getattr(cli_args, cli_key)
                 if cli_value is not None:
-                    if cli_key == 'verbose' and cli_value:
-                        self._set_nested(config_path, 'DEBUG')
+                    if cli_key == 'verbose':
+                        if cli_value:  # 只有 verbose=True 时才覆盖，False 保留默认值
+                            self._set_nested(config_path, 'DEBUG')
                     else:
                         self._set_nested(config_path, cli_value)
         return self.config
@@ -138,9 +139,19 @@ class ModelCapabilities:
             raise FileNotFoundError(f"Model capabilities registry not found: {registry_path}")
 
     def get_model_info(self, provider, model):
-        """获取模型能力信息，未知模型返回 None。"""
+        """获取模型能力信息，未知模型返回 None。
+        先精确匹配，再去掉 Ollama 标签（如 :3b/:7b）后重试。
+        """
         provider_models = self.capabilities.get(provider, {}) or {}
-        return provider_models.get(model)
+        # 精确匹配
+        info = provider_models.get(model)
+        if info is not None:
+            return info
+        # 去掉标签后重试（例如 qwen2.5vl:3b -> qwen2.5vl）
+        base_model = model.split(':')[0]
+        if base_model != model:
+            return provider_models.get(base_model)
+        return None
 
     def get_vision_support(self, provider, model, unknown_default=None):
         """
