@@ -117,6 +117,49 @@ class VisionProcessor:
             return (r.x0, r.y0, r.x1, r.y1)
         return None
 
+    def get_image_text_anchors(self):
+        """
+        为每张图片找到其上方最近的文字块（锚文本），用于语义位置插入。
+
+        Returns:
+            list[dict]: 每项包含：
+                - page_num: 页码
+                - xref: 图片引用ID
+                - anchor_text: 图片上方最近的文字（None表示未找到）
+        """
+        doc = self._get_doc()
+        anchors = []
+
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            # 获取文字块：(x0, y0, x1, y1, text, block_no, block_type)
+            text_blocks = [b for b in page.get_text("blocks") if b[6] == 0]
+
+            for img_info in page.get_images(full=True):
+                xref = img_info[0]
+                bbox = self._get_image_bbox(page, xref)
+                if bbox is None:
+                    anchors.append({'page_num': page_num, 'xref': xref, 'anchor_text': None})
+                    continue
+
+                iy0 = bbox[1]
+                # 找 y1 最大且小于 iy0 的文字块
+                best_y1 = -1
+                anchor_text = None
+                for b in text_blocks:
+                    by1 = b[3]
+                    if by1 <= iy0 and by1 > best_y1:
+                        best_y1 = by1
+                        anchor_text = b[4].strip()
+
+                anchors.append({
+                    'page_num': page_num,
+                    'xref': xref,
+                    'anchor_text': anchor_text,
+                })
+
+        return anchors
+
     def identify_image_regions(self):
         """
         识别各页中的图片区域（不提取图片数据）

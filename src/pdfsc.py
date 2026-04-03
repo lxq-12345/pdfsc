@@ -19,6 +19,7 @@ from config import ConfigManager, ModelCapabilities
 from converter import Converter
 from detector import PDFDetector
 from extractor import TextExtractor
+from image_handler import ImageProcessor
 from logger import create_logger
 from metadata import FrontmatterGenerator
 from validator import MarkdownValidator
@@ -291,6 +292,23 @@ def convert_single_pdf(pdf_path, output_root, config, logger, index):
         final_markdown = converter.convert_enhance(restore_markdown, metadata)
     else:
         restore_markdown, final_markdown = converter.convert_full(extracted, metadata)
+
+    # 图片处理（C2阶段）
+    image_mode = config.get('images.mode', 'disabled')
+    if image_mode != 'disabled':
+        doc_index = str(index).zfill(2)
+        images_dir = output_root / 'images'
+        with ImageProcessor(pdf_path, images_dir, doc_index) as img_proc:
+            min_width = int(config.get('images.min_width', 100))
+            if restore_markdown:
+                restore_markdown = img_proc.process(
+                    restore_markdown, image_mode=image_mode, min_width=min_width
+                )
+            if final_markdown:
+                final_markdown = img_proc.process(
+                    final_markdown, image_mode=image_mode, min_width=min_width
+                )
+        logger.info(f"图片处理完成（模式：{image_mode}）")
 
     base_name = build_output_basename(pdf_path.stem, index, config)
     raw_dir = output_root / 'markdown' / 'raw'
