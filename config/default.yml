@@ -45,6 +45,7 @@ api:
   model: claude-sonnet-4-5            # 模型名称
   key_env: ANTHROPIC_API_KEY          # API Key环境变量名
   base_url:                           # 留空使用默认；Ollama填 http://localhost:11434/v1
+  offline_mode: false                 # true时强制离线，不触发任何外部模型调用
   max_retries: 3
   timeout: 120                        # 超时时间（秒）
   unknown_model_vision: false         # 未知模型是否假设支持视觉（保守降级）
