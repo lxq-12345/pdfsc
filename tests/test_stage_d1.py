@@ -1,4 +1,4 @@
-"""
+﻿"""
 阶段D1验收测试：批量处理与质量检测
 
 测试内容：
@@ -29,6 +29,15 @@ PDF_02 = _pdf("04快速安装指南", "TaiShan 200 服务器 快速安装指南 
 PDF_03 = None  # 在 setUp 中动态查找
 
 SKIP_REAL = not PDF_02.exists()
+
+
+def _python_executable():
+    """返回当前测试环境可复用的 Python 解释器。"""
+    current = Path(sys.executable) if sys.executable else None
+    if current and current.exists():
+        return str(current)
+
+    return 'python.exe' if sys.platform.startswith('win') else 'python3'
 
 
 # ─────────────────────────────────────────────
@@ -157,7 +166,7 @@ class TestBatchConversionOffline(unittest.TestCase):
         import subprocess
         worktree = Path(__file__).parent.parent
         cmd = [
-            'python3', str(worktree / 'src' / 'pdfsc.py'),
+            _python_executable(), str(worktree / 'src' / 'pdfsc.py'),
             'convert', str(pdf_path),
             '--output', str(self.tmp),
             '--offline',
@@ -188,6 +197,27 @@ class TestBatchConversionOffline(unittest.TestCase):
             content = reports[0].read_text(encoding='utf-8')
             self.assertIn('Markdown验证报告', content)
             self.assertIn('数字幻觉检测', content)
+
+    def test_batch_summary_uses_semantic_format(self):
+        """批量汇总报告不应使用传统Markdown表格"""
+        import subprocess
+        worktree = Path(__file__).parent.parent
+        pdf_dir = PDF_02.parent
+        cmd = [
+            _python_executable(), str(worktree / 'src' / 'pdfsc.py'),
+            'convert-batch', str(pdf_dir),
+            '--output', str(self.tmp),
+            '--offline',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+
+        summaries = list((self.tmp / 'reports').glob('batch_summary_*.md'))
+        self.assertGreater(len(summaries), 0)
+        content = summaries[0].read_text(encoding='utf-8')
+        self.assertIn('## 各文件结果', content)
+        self.assertIn('文档类型：', content)
+        self.assertNotIn('| 文件 | 类型 | 格式评分 | 幻觉风险 | 报告 |', content)
 
 
 # ─────────────────────────────────────────────
@@ -222,3 +252,6 @@ class TestHallucinationWithRealSamples(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+
+
+

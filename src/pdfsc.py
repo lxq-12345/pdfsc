@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 PDF Smart Converter - CLI Entry Point
 
@@ -393,18 +393,29 @@ def _write_batch_summary(summary_path, results, success_count, total_count):
         '',
         '## 各文件结果',
         '',
-        '| 文件 | 类型 | 格式评分 | 幻觉风险 | 报告 |',
-        '|------|------|---------|---------|------|',
     ]
-    for r in results:
-        pdf_name = Path(r['pdf']).name
-        pdf_type = r.get('type', '-')
-        score = f"{r['validation_score']}/10" if r.get('validation_score') is not None else '-'
-        risk = r.get('hallucination_risk', '-') or '-'
-        report = Path(r['report_path']).name if r.get('report_path') else '-'
-        lines.append(f"| {pdf_name} | {pdf_type} | {score} | {risk} | {report} |")
 
-    summary_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    if not results:
+        lines.append('本次未生成可汇总的文件结果。')
+    else:
+        for idx, r in enumerate(results, start=1):
+            pdf_name = Path(r['pdf']).name
+            pdf_type = r.get('type', '-')
+            score = f"{r['validation_score']}/10" if r.get('validation_score') is not None else '-'
+            risk = r.get('hallucination_risk', '-') or '-'
+            report = Path(r['report_path']).name if r.get('report_path') else '-'
+
+            lines.extend([
+                f"### 文件 {idx}：{pdf_name}",
+                '',
+                f"文档类型：{pdf_type}",
+                f"格式评分：{score}",
+                f"幻觉风险：{risk}",
+                f"质量报告：{report}",
+                '',
+            ])
+
+    summary_path.write_text('\n'.join(lines), encoding='utf-8')
 
 
 def collect_pdf_files(input_dir, recursive=False, pattern='*.pdf'):
@@ -457,3 +468,4 @@ def sanitize_filename(text):
 
 if __name__ == '__main__':
     main()
+
