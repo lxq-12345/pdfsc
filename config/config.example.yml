@@ -1,10 +1,9 @@
 # PDF Smart Converter - Configuration Example
 #
-# 📋 使用说明：
+# 使用说明：
 # 1. 复制此文件为 config.yml
-# 2. 填入你的 API Key
-# 3. 根据需要调整其他配置
-# 4. 运行: pdfsc convert input.pdf --config ./config/config.yml
+# 2. 按运行模式填写 provider/model
+# 3. 执行: python3 src/pdfsc.py convert input.pdf --config ./config/config.yml
 
 # ─────────────────────────────────────
 # 1. 路径配置
@@ -49,27 +48,37 @@ conversion:
 # 5. AI模型配置 ⭐ 必须配置
 # ─────────────────────────────────────
 api:
-  # 选择提供商
-  provider: anthropic                 # anthropic / openai / qwen / ollama
+  # 提供商：anthropic / openai / qwen / ollama / mock
+  provider: ollama
 
-  # Claude 配置示例：
-  model: claude-sonnet-4-5            # 推荐：claude-sonnet-4-5 或 claude-opus-4-6
-  key_env: ANTHROPIC_API_KEY          # 环境变量名（设置在 .env 或 shell）
-  base_url:                           # 不填（使用官方地址）
+  # 当前 provider 对应模型名
+  model: qwen2.5:1.5b
+  key_env: ANTHROPIC_API_KEY          # ollama/mock 可留空
+  base_url: http://localhost:11434/v1 # anthropic/openai 通常留空
 
-  # OpenAI 配置示例（注释掉别的provider时使用）：
+  # true 时强制离线，不走外部模型
+  offline_mode: false
+  # true 时启用本地 mock 适配器（无网络调用）
+  mock_mode: false
+
+  # OpenAI 示例：
   # provider: openai
   # model: gpt-4o
   # key_env: OPENAI_API_KEY
   # base_url:
 
-  # Ollama 本地配置示例（需要 docker-compose up）：
+  # Ollama 示例：
   # provider: ollama
-  # model: qwen2.5-vl
-  # key_env:                           # Ollama无需API Key，留空
+  # model: qwen2.5vl:3b
+  # key_env:
   # base_url: http://localhost:11434/v1
 
-  # 重试和超时
+  # Mock 示例：
+  # provider: mock
+  # model: mock-v1
+  # mock_mode: true
+
+  # 重试与超时
   max_retries: 3                      # 最大重试次数
   timeout: 120                        # 超时（秒）
   unknown_model_vision: false         # 未知模型是否支持视觉（保守默认false）
@@ -115,6 +124,7 @@ naming:
 quality:
   auto_validate: true                 # 自动验证输出格式
   on_failure: warn                    # warn（警告继续）/ stop（报错停止）
+  mark_low_quality_outputs: true      # mock/offline/fallback 输出自动打标
 
 
 # ═══════════════════════════════════
