@@ -3,8 +3,8 @@
 #
 # Usage:
 #   ./scripts/run_d2.sh flow-test
-#   ./scripts/run_d2.sh convert <input.pdf> [--mode mock|offline|real]
-#   ./scripts/run_d2.sh batch <input_dir> [--mode mock|offline|real]
+#   ./scripts/run_d2.sh convert <input.pdf> [mock|offline|real]
+#   ./scripts/run_d2.sh batch <input_dir> [mock|offline|real]
 
 set -euo pipefail
 

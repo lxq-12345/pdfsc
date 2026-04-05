@@ -35,6 +35,18 @@ bash scripts/install.sh
 
 安装脚本会优先创建并使用 `.venv_wsl`（兼容当前 WSL 工作流），若在非 WSL 环境则使用 `.venv`。
 
+### Ubuntu 安装包安装（推荐用于服务器验收）
+
+```bash
+tar -xzf pdfsc-ubuntu-installer-20260405.tar.gz
+cd pdfsc-ubuntu-installer-20260405
+bash scripts/install.sh
+cp config/config.example.yml config/config.yml
+bash scripts/run_d2.sh flow-test
+```
+
+详细步骤请参考 [用户使用手册](./用户使用手册.md) 的安装章节。
+
 ## 配置
 
 1. 复制配置模板：
@@ -90,6 +102,10 @@ bash scripts/run_d2.sh flow-test
 
 - [项目规划](./plan/项目规划.md)
 - [项目技术约定](./plan/项目技术约定.md)
+- [技术手册](./技术手册.md)
+- [用户使用手册](./用户使用手册.md)
+- [软件体系架构](./软件体系架构.md)
+- [程序清单（含说明）](./程序清单.md)
 - [Markdown转换规范](./skills/Markdown转换规范.md)
 - [环境说明](./环境说明.md)
 - [配置模板](./config/config.example.yml)
