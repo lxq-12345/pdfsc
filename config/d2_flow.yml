@@ -1,0 +1,22 @@
+api:
+  provider: mock
+  model: mock-v1
+  offline_mode: false
+  mock_mode: true
+  max_retries: 1
+  timeout: 30
+
+conversion:
+  mode: full
+  save_intermediate: true
+
+images:
+  mode: disabled
+
+quality:
+  mark_low_quality_outputs: true
+  auto_validate: true
+  on_failure: warn
+
+paths:
+  output_md: ./output/d2_flow

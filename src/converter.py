@@ -20,6 +20,9 @@ class Converter:
         self.logger = logger
         self.pdf_type = pdf_type
         self._adapter = None
+        self._last_call_mode = 'unknown'
+        self._last_restore_mode = 'unknown'
+        self._last_enhance_mode = 'unknown'
 
     def convert_restore(self, pdf_content, pdf_metadata):
         """
@@ -30,9 +33,18 @@ class Converter:
         prompt = self._build_restore_prompt(pdf_content, pdf_metadata)
         model_output = self._call_model(prompt)
         if model_output:
-            return self._ensure_frontmatter_and_title(model_output, pdf_metadata)
+            output = self._ensure_frontmatter_and_title(model_output, pdf_metadata)
+            if self._should_mark_low_quality():
+                output = self._apply_low_quality_marker(output, stage='restore')
+            self._last_restore_mode = self._last_call_mode
+            return output
 
-        return self._fallback_restore(pdf_content, pdf_metadata)
+        result = self._apply_low_quality_marker(
+            self._fallback_restore(pdf_content, pdf_metadata),
+            stage='restore',
+        )
+        self._last_restore_mode = self._last_call_mode
+        return result
 
     def convert_enhance(self, restore_markdown, pdf_metadata):
         """
@@ -43,9 +55,18 @@ class Converter:
         prompt = self._build_enhance_prompt(restore_markdown, pdf_metadata)
         model_output = self._call_model(prompt)
         if model_output:
-            return self._ensure_frontmatter_and_title(model_output, pdf_metadata)
+            output = self._ensure_frontmatter_and_title(model_output, pdf_metadata)
+            if self._should_mark_low_quality():
+                output = self._apply_low_quality_marker(output, stage='enhance')
+            self._last_enhance_mode = self._last_call_mode
+            return output
 
-        return self._fallback_enhance(restore_markdown)
+        result = self._apply_low_quality_marker(
+            self._fallback_enhance(restore_markdown),
+            stage='enhance',
+        )
+        self._last_enhance_mode = self._last_call_mode
+        return result
 
     def convert_full(self, pdf_content, pdf_metadata):
         """完整转换（两步合并）"""
@@ -57,14 +78,18 @@ class Converter:
         """调用模型，失败时返回 None 并走本地回退。"""
         if self._is_offline_mode():
             self._warn('离线模式已启用，跳过外部模型调用。')
+            self._last_call_mode = 'offline'
             return None
 
         try:
             adapter = self._get_adapter()
             max_retries = self._get_config('api.max_retries', 3)
-            return adapter.call(prompt, max_retries=max_retries)
+            output = adapter.call(prompt, max_retries=max_retries)
+            self._last_call_mode = 'mock' if self._is_mock_mode() else 'model'
+            return output
         except Exception as exc:
             self._warn(f"模型调用不可用，已切换本地回退模式: {exc}")
+            self._last_call_mode = 'fallback'
             return None
 
     def _get_adapter(self):
@@ -185,8 +210,65 @@ class Converter:
         env_flag = os.getenv('PDFSC_OFFLINE', '').strip().lower()
         return bool(flag) or env_flag in {'1', 'true', 'yes', 'on'}
 
+    def _is_mock_mode(self):
+        provider = str(self._get_config('api.provider', '')).strip().lower()
+        if provider == 'mock':
+            return True
+
+        flag = self._get_config('api.mock_mode', False)
+        if isinstance(flag, str):
+            flag = flag.strip().lower() in {'1', 'true', 'yes', 'on'}
+        return bool(flag)
+
+    def _should_mark_low_quality(self):
+        mark_enabled = self._get_config('quality.mark_low_quality_outputs', True)
+        if isinstance(mark_enabled, str):
+            mark_enabled = mark_enabled.strip().lower() in {'1', 'true', 'yes', 'on'}
+        if not mark_enabled:
+            return False
+        return self._last_call_mode in {'offline', 'fallback', 'mock'}
+
+    def _apply_low_quality_marker(self, markdown, stage):
+        marker_header = '<!-- DRAFT/LOW_QUALITY -->'
+        if marker_header in markdown:
+            return markdown
+
+        mode = self._last_call_mode
+        note = (
+            f"> **DRAFT/LOW_QUALITY**：当前为流程验证输出（stage={stage}, mode={mode}），"
+            "不可作为最终交付版本。\n"
+        )
+        marker_block = f"{marker_header}\n{note}\n"
+
+        stripped = markdown.strip()
+        if stripped.startswith('---'):
+            parts = stripped.split('\n')
+            fence_count = 0
+            end_idx = None
+            for idx, line in enumerate(parts):
+                if line.strip() == '---':
+                    fence_count += 1
+                    if fence_count == 2:
+                        end_idx = idx
+                        break
+            if end_idx is not None:
+                head = '\n'.join(parts[: end_idx + 1]).strip()
+                tail = '\n'.join(parts[end_idx + 1 :]).strip()
+                if tail:
+                    return f"{head}\n\n{marker_block}{tail}\n"
+                return f"{head}\n\n{marker_block}"
+
+        return f"{marker_block}{stripped}\n"
+
     def _warn(self, message):
         if self.logger and hasattr(self.logger, 'warning'):
             self.logger.warning(message)
             return
         print(f"[WARNING] {message}")
+
+    def get_last_modes(self):
+        """返回最近一次转换步骤的运行模式。"""
+        return {
+            'restore': self._last_restore_mode,
+            'enhance': self._last_enhance_mode,
+        }

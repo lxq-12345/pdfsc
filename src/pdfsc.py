@@ -301,6 +301,10 @@ def convert_single_pdf(pdf_path, output_root, config, logger, index):
     else:
         restore_markdown, final_markdown = converter.convert_full(extracted, metadata)
 
+    conversion_modes = converter.get_last_modes()
+    restore_mode = conversion_modes.get('restore', 'unknown')
+    enhance_mode = conversion_modes.get('enhance', 'unknown') if final_markdown else '-'
+
     # 图片处理（C2阶段）
     image_mode = config.get('images.mode', 'disabled')
     if image_mode != 'disabled':
@@ -371,6 +375,9 @@ def convert_single_pdf(pdf_path, output_root, config, logger, index):
         'type': pdf_type,
         'raw_path': str(raw_path) if raw_path else None,
         'final_path': str(final_path) if final_path else None,
+        'restore_mode': restore_mode,
+        'enhance_mode': enhance_mode,
+        'low_quality': _is_low_quality_mode(restore_mode) or _is_low_quality_mode(enhance_mode),
         'report_path': str(report_path) if report_path else None,
         'validation_score': val_result['score'] if restore_markdown and final_markdown else None,
         'hallucination_risk': hal_result['risk_level'] if restore_markdown and final_markdown else None,
@@ -385,15 +392,50 @@ def _today():
 
 def _write_batch_summary(summary_path, results, success_count, total_count):
     """写入批量转换汇总报告。"""
+    low_quality_count = sum(1 for r in results if r.get('low_quality'))
+    restore_mode_counts = {}
+    enhance_mode_counts = {}
+    for r in results:
+        restore_mode = r.get('restore_mode', '-') or '-'
+        enhance_mode = r.get('enhance_mode', '-') or '-'
+        restore_mode_counts[restore_mode] = restore_mode_counts.get(restore_mode, 0) + 1
+        if enhance_mode != '-':
+            enhance_mode_counts[enhance_mode] = enhance_mode_counts.get(enhance_mode, 0) + 1
+
     lines = [
         '# 批量转换汇总报告',
         '',
         f"**日期**：{_today()}",
         f"**总计**：{success_count}/{total_count} 成功",
+        f"**低质量模式命中**：{low_quality_count}/{success_count}",
+        '',
+        '## 运行模式统计',
+        '',
+        'Restore 模式分布：',
+    ]
+
+    if restore_mode_counts:
+        for mode, count in sorted(restore_mode_counts.items(), key=lambda item: item[0]):
+            lines.append(f"- {mode}: {count}")
+    else:
+        lines.append('- （无数据）')
+
+    lines.extend([
+        '',
+        'Enhance 模式分布：',
+    ])
+
+    if enhance_mode_counts:
+        for mode, count in sorted(enhance_mode_counts.items(), key=lambda item: item[0]):
+            lines.append(f"- {mode}: {count}")
+    else:
+        lines.append('- （无数据）')
+
+    lines.extend([
         '',
         '## 各文件结果',
         '',
-    ]
+    ])
 
     if not results:
         lines.append('本次未生成可汇总的文件结果。')
@@ -404,11 +446,16 @@ def _write_batch_summary(summary_path, results, success_count, total_count):
             score = f"{r['validation_score']}/10" if r.get('validation_score') is not None else '-'
             risk = r.get('hallucination_risk', '-') or '-'
             report = Path(r['report_path']).name if r.get('report_path') else '-'
+            restore_mode = r.get('restore_mode', '-') or '-'
+            enhance_mode = r.get('enhance_mode', '-') or '-'
+            low_quality = '是' if r.get('low_quality') else '否'
 
             lines.extend([
                 f"### 文件 {idx}：{pdf_name}",
                 '',
                 f"文档类型：{pdf_type}",
+                f"运行模式：restore={restore_mode} / enhance={enhance_mode}",
+                f"低质量模式命中：{low_quality}",
                 f"格式评分：{score}",
                 f"幻觉风险：{risk}",
                 f"质量报告：{report}",
@@ -464,6 +511,10 @@ def sanitize_filename(text):
     sanitized = re.sub(r'\s+', '_', sanitized)
     sanitized = re.sub(r'_+', '_', sanitized)
     return sanitized.strip('._')
+
+
+def _is_low_quality_mode(mode):
+    return mode in {'offline', 'fallback', 'mock'}
 
 
 if __name__ == '__main__':

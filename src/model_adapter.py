@@ -192,6 +192,7 @@ class ModelAdapterFactory:
         'openai': lambda *args, **kwargs: OpenAIAdapter(*args, **kwargs),
         'qwen': lambda *args, **kwargs: QwenAdapter(*args, **kwargs),
         'ollama': lambda *args, **kwargs: OllamaAdapter(*args, **kwargs),
+        'mock': lambda *args, **kwargs: MockAdapter(*args, **kwargs),
     }
 
     @staticmethod
@@ -409,3 +410,29 @@ class OllamaAdapter(OpenAICompatibleAdapter):
     """Ollama 本地模型适配器"""
 
     default_base_url = 'http://localhost:11434/v1'
+
+
+class MockAdapter(BaseModelAdapter):
+    """本地 Mock 适配器（不发起网络请求，用于流程联调）。"""
+
+    def call(self, prompt, images=None, max_retries=None):
+        _ = images
+        _ = max_retries
+
+        prompt_text = (prompt or "").strip()
+        if "忠实还原" in prompt_text:
+            return (
+                "## MOCK Restore Output\n\n"
+                "该内容由 mock adapter 生成，用于流程验证。\n\n"
+                "原文内容摘要：\n"
+                "- 提取链路可达\n"
+                "- 转换链路可达\n"
+            )
+
+        return (
+            "## MOCK Enhance Output\n\n"
+            "该内容由 mock adapter 生成，用于流程验证。\n\n"
+            "增强处理摘要：\n"
+            "- 增强链路可达\n"
+            "- 报告链路可达\n"
+        )

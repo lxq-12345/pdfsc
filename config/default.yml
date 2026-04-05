@@ -41,11 +41,12 @@ conversion:
 # 5. AI模型配置
 # ─────────────────────────────────────
 api:
-  provider: ollama                    # anthropic / openai / qwen / ollama
+  provider: ollama                    # anthropic / openai / qwen / ollama / mock
   model: qwen2.5:1.5b                 # 模型名称
   key_env: ANTHROPIC_API_KEY          # API Key环境变量名
   base_url: http://localhost:11434/v1  # 留空使用默认；Ollama填 http://localhost:11434/v1
   offline_mode: false                 # true时强制离线，不触发任何外部模型调用
+  mock_mode: false                    # true时启用 mock 联调模式（无网络调用）
   max_retries: 3
   timeout: 120                        # 超时时间（秒）
   unknown_model_vision: false         # 未知模型是否假设支持视觉（保守降级）
@@ -72,3 +73,4 @@ naming:
 quality:
   auto_validate: true                 # 是否自动运行格式验证
   on_failure: warn                    # warn / stop
+  mark_low_quality_outputs: true      # 离线/回退/mock 输出自动添加 DRAFT/LOW_QUALITY 标记
