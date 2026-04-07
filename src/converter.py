@@ -128,6 +128,8 @@ class Converter:
         title = pdf_metadata.get('title', '未命名文档')
         source_pdf = pdf_metadata.get('source_pdf', 'unknown.pdf')
         text = self._extract_text(pdf_content)
+        body = self._structure_fallback_body(text)
+        table_traces = self._extract_table_traces(pdf_content)
 
         chunks = []
         if frontmatter:
@@ -137,9 +139,164 @@ class Converter:
         chunks.append(f"- 来源文件：{source_pdf}")
         chunks.append("- 生成模式：本地回退（未调用外部模型）")
         chunks.append("## 原文内容")
-        chunks.append(text if text else "（未提取到正文文本）")
+        chunks.append(body if body else "（未提取到正文文本）")
+        if table_traces:
+            chunks.append("## 表格痕迹（回退保留）")
+            chunks.append(self._render_table_traces(table_traces))
         return "\n\n".join(chunks).strip() + "\n"
 
+    def _structure_fallback_body(self, text):
+        """回退模式下增加基础结构，并过滤页眉页脚/目录噪声。"""
+        if not text:
+            return ""
+
+        normalized = text.replace('\r\n', '\n').replace('\r', '\n')
+        lines = [line.strip() for line in normalized.split('\n')]
+
+        chunks = []
+        pending_blank = False
+
+        for line in lines:
+            if not line:
+                pending_blank = True
+                continue
+
+            if self._is_noise_line(line):
+                continue
+
+            section_match = re.fullmatch(r'(\d+)\s+(.+)', line)
+            subsection_match = re.fullmatch(r'(\d+\.\d+)\s+(.+)', line)
+            chapter_match = re.fullmatch(r'(第[一二三四五六七八九十百零\d]+[章节篇部].+)', line)
+
+            heading = None
+            if line.startswith('#'):
+                heading = line
+            elif subsection_match and self._is_probable_heading_text(subsection_match.group(2)):
+                heading = f"### {subsection_match.group(1)} {subsection_match.group(2)}"
+            elif section_match and int(section_match.group(1)) <= 9 and self._is_probable_heading_text(section_match.group(2)):
+                heading = f"## {section_match.group(1)} {section_match.group(2)}"
+            elif chapter_match:
+                heading = f"## {chapter_match.group(1)}"
+
+            if heading:
+                if chunks and chunks[-1] != "":
+                    chunks.append("")
+                chunks.append(heading)
+                chunks.append("")
+                pending_blank = False
+                continue
+
+            if pending_blank and chunks and chunks[-1] != "":
+                chunks.append("")
+            chunks.append(line)
+            pending_blank = False
+
+        while chunks and not chunks[-1].strip():
+            chunks.pop()
+
+        return '\n'.join(chunks)
+
+    def _is_noise_line(self, line):
+        """过滤页眉页脚与目录噪声。"""
+        s = line.strip()
+        if not s:
+            return True
+
+        footer_patterns = [
+            r'版权所有\s*©?\s*华为技术有限公司',
+            r'^文档版本$',
+            r'^文档版本\s+发布日期$',
+            r'^目\s*录$',
+            r'^TaiShan\s*200\s*服务器\s*\(型号\s*2280\)\s*$',
+            r'^TaiShan\s*200\s*服务器\s*\(型号\s*2280\)\s*用户指南$',
+            r'^用户指南$',
+            r'^TaiShan\s*200\s*服务器.*用户指南$',
+            r'^前言$',
+            r'^发布日期$',
+            r'^修改记录$',
+            r'^修改说明$',
+            r'^(概述|读者对象|符号约定)$',
+            r'^(登录|通过)$',
+            r'^初始配置（?iBMC.*$',
+            r'^常用操作（?iBMC.*$',
+            r'^华为技术有限公司$',
+            r'^\d{4}-\d{2}-\d{2}$',
+            r'^\d{1,2}$',
+            r'^\s*[ivxlcdmIVXLCDM]+\s*$',
+        ]
+        for pattern in footer_patterns:
+            if re.search(pattern, s):
+                return True
+
+        if re.search(r'[\.。·]{4,}\s*\d+\s*$', s):
+            return True
+        if re.search(r'^[^\s].{0,60}[\.。·]{8,}.+$', s):
+            return True
+        if re.search(r'^\d+\s*\(\d{4}-\d{2}-\d{2}\)\s*版权所有', s):
+            return True
+
+        return False
+
+    def _is_probable_heading_text(self, text):
+        """限制数字行误判为标题（如 7260 64 2.6 ...）。"""
+        t = text.strip()
+        if not t:
+            return False
+
+        if re.match(r'^\d', t):
+            return False
+        if len(re.findall(r'\d', t)) >= 5:
+            return False
+        if re.search(r'[\d]+\s+[\d]+', t):
+            return False
+
+        heading_keywords = ('简介', '准备', '安装', '上电', '下电', '附录', '规格', '组件', '故障', '安全', '维保', '操作', '资源', '环境', '目录')
+        if any(k in t for k in heading_keywords):
+            return True
+
+        return len(t) <= 24 and bool(re.search(r'[\u4e00-\u9fff]', t))
+
+    def _extract_table_traces(self, pdf_content):
+        """从提取结构中读取表格痕迹。"""
+        if not isinstance(pdf_content, dict):
+            return []
+        tables_node = pdf_content.get('tables')
+        if not isinstance(tables_node, dict):
+            return []
+        tables = tables_node.get('tables', [])
+        if not isinstance(tables, list):
+            return []
+        return tables
+
+    def _render_table_traces(self, tables):
+        """把表格痕迹渲染为 Markdown 文本。"""
+        rendered = []
+        for idx, table in enumerate(tables, start=1):
+            if not isinstance(table, dict):
+                continue
+            page = table.get('page', '?')
+            table_idx = table.get('table_index', '?')
+            rendered.append(f"### 表格 {idx}（第{page}页，第{table_idx}表）")
+            rows = table.get('rows', [])
+            if not isinstance(rows, list) or not rows:
+                rendered.append("- （未提取到行数据）")
+                rendered.append("")
+                continue
+
+            preview_rows = rows[:8]
+            for row_no, row in enumerate(preview_rows, start=1):
+                if isinstance(row, list):
+                    row_text = " | ".join(str(col).strip() for col in row if str(col).strip())
+                else:
+                    row_text = str(row).strip()
+                if not row_text:
+                    continue
+                rendered.append(f"- 第{row_no}行：{row_text}")
+            if len(rows) > len(preview_rows):
+                rendered.append(f"- ... 其余 {len(rows) - len(preview_rows)} 行省略")
+            rendered.append("")
+
+        return "\n".join(rendered).strip()
     def _fallback_enhance(self, restore_markdown):
         """本地回退：仅做格式层增强，不新增事实内容。"""
         lines = [line.rstrip() for line in restore_markdown.splitlines()]
