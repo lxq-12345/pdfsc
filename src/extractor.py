@@ -1,4 +1,4 @@
-"""
+﻿"""
 文字提取模块（基于pdfplumber）
 
 功能：从PDF提取结构化文本和表格
@@ -6,9 +6,10 @@
 创建日期：2026-03-13
 """
 
-import pdfplumber
-from typing import Dict, List, Optional
 import os
+from typing import Dict, List
+
+import pdfplumber
 
 
 class TextExtractor:
@@ -64,7 +65,7 @@ class TextExtractor:
         full_text_parts = []
 
         for page_num, page in enumerate(self._pdf.pages, start=1):
-            text = page.extract_text() or ""
+            text = self._extract_page_text(page)
             pages_data.append({
                 'page_num': page_num,
                 'text': text.strip()
@@ -154,6 +155,128 @@ class TextExtractor:
             'tables': tables_result,
             'has_tables': tables_result['metadata']['total_tables'] > 0
         }
+
+    @staticmethod
+    def _extract_page_text(page) -> str:
+        """
+        提取单页文本。
+
+        优先尝试按“词 -> 行 -> 列”的顺序重建阅读顺序，降低多栏页面被
+        直接线性串接的概率；若判断不出稳定分栏，则回退到 pdfplumber 默认
+        的 extract_text()。
+        """
+        words = page.extract_words(
+            use_text_flow=False,
+            keep_blank_chars=False,
+            x_tolerance=2,
+            y_tolerance=3,
+        )
+
+        text = TextExtractor._extract_layout_text(words, page.width)
+        if text:
+            return text
+
+        return (page.extract_text() or "").strip()
+
+    @staticmethod
+    def _extract_layout_text(words: List[Dict], page_width: float) -> str:
+        """根据词块位置重建更接近版面的阅读顺序。"""
+        if not words:
+            return ""
+
+        lines = TextExtractor._build_lines(words, page_width)
+        if not lines:
+            return ""
+
+        columns = TextExtractor._cluster_columns(lines, page_width)
+        if len(columns) < 2:
+            return "\n".join(
+                line['text'] for line in sorted(lines, key=lambda x: (x['top'], x['x0']))
+            ).strip()
+
+        ordered_lines = []
+        for column in columns:
+            ordered_lines.extend(sorted(column, key=lambda x: (x['top'], x['x0'])))
+
+        return "\n".join(line['text'] for line in ordered_lines).strip()
+
+    @staticmethod
+    def _build_lines(words: List[Dict], page_width: float) -> List[Dict]:
+        """按 top 与水平间隔将词块合并为近似文本行。"""
+        if not words:
+            return []
+
+        sorted_words = sorted(words, key=lambda x: (round(x['top'], 1), x['x0']))
+        lines = []
+        current = []
+        line_top = None
+        last_x1 = None
+        y_tolerance = 4
+        column_gap_threshold = page_width * 0.08
+
+        def flush_line():
+            if not current:
+                return
+            ordered = sorted(current, key=lambda x: x['x0'])
+            text = " ".join(word['text'] for word in ordered).strip()
+            if not text:
+                return
+            lines.append({
+                'text': text,
+                'top': min(word['top'] for word in ordered),
+                'x0': min(word['x0'] for word in ordered),
+                'x1': max(word['x1'] for word in ordered),
+            })
+
+        for word in sorted_words:
+            word_top = word['top']
+            word_x0 = word['x0']
+            if not current:
+                current = [word]
+                line_top = word_top
+                last_x1 = word['x1']
+                continue
+
+            same_row = abs(word_top - line_top) <= y_tolerance
+            close_enough = (word_x0 - last_x1) <= column_gap_threshold
+            if same_row and close_enough:
+                current.append(word)
+                last_x1 = max(last_x1, word['x1'])
+                continue
+
+            flush_line()
+            current = [word]
+            line_top = word_top
+            last_x1 = word['x1']
+
+        flush_line()
+        return lines
+
+    @staticmethod
+    def _cluster_columns(lines: List[Dict], page_width: float) -> List[List[Dict]]:
+        """按 x0 聚类为列，适配双栏/三栏页面。"""
+        if not lines:
+            return []
+
+        sorted_lines = sorted(lines, key=lambda x: x['x0'])
+        clusters: List[List[Dict]] = [[sorted_lines[0]]]
+        split_threshold = page_width * 0.12
+
+        def cluster_center(cluster):
+            return sum(item['x0'] for item in cluster) / len(cluster)
+
+        for line in sorted_lines[1:]:
+            prev_center = cluster_center(clusters[-1])
+            if abs(line['x0'] - prev_center) > split_threshold:
+                clusters.append([line])
+            else:
+                clusters[-1].append(line)
+
+        meaningful = [cluster for cluster in clusters if len(cluster) >= 3]
+        if len(meaningful) < 2:
+            return [sorted(lines, key=lambda x: (x['top'], x['x0']))]
+
+        return sorted(meaningful, key=cluster_center)
 
 
 def extract_pdf_text(pdf_path: str) -> str:

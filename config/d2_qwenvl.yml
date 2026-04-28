@@ -1,0 +1,15 @@
+﻿api:
+  provider: ollama
+  model: qwen2.5vl:3b
+  base_url: http://localhost:11434/v1
+  offline_mode: false
+  max_retries: 2
+  timeout: 180
+  unknown_model_vision: false
+images:
+  mode: disabled
+conversion:
+  mode: restore-only
+  save_intermediate: true
+paths:
+  output_md: /mnt/d/usr/百信公司项目/pdfsc/output/d2_case_02_qwenvl
