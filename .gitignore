@@ -17,7 +17,7 @@ config/config.yml
 ~/.config/pdfsc/secrets.env
 
 # 转换输出
-output/
+output/*/
 
 # 日志
 *.log
